@@ -14,9 +14,11 @@ constexpr auto vertexShaderSource = R"(
     
     layout (location = 0) in vec2 aPos;
 
+    uniform vec2 trans;
+
     void main()
     {
-        gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
+        gl_Position = vec4(aPos.x + trans.x, aPos.y + trans.y, 0.0, 1.0);
     }
 )";
 
@@ -150,7 +152,22 @@ int main() {
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
+    double lastX, lastY;
+    float triangleX {};
+    float triangleY {};
+    float dragOffsetX {};
+    float dragOffsetY {};
+    bool dragging = false;
+
     while (!glfwWindowShouldClose(window)) {
+
+                glfwPollEvents();
+
+        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+            glfwSetWindowShouldClose(window, true);
+        }
+
+
 
         int fbWidth, fbHeight;
         glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
@@ -160,6 +177,35 @@ int main() {
 
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
+
+if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+    double x, y;
+    glfwGetCursorPos(window, &x, &y);
+    
+    // Convert to NDC using framebuffer coordinates
+    float ndcX = (x / fbWidth) * 2.0f - 1.0f;
+    float ndcY = 1.0f - (y / fbHeight) * 2.0f;
+    
+    if (!dragging) {
+        // Start dragging - calculate offset from triangle center
+        dragOffsetX = triangleX - ndcX;
+        dragOffsetY = triangleY - ndcY;
+        dragging = true;
+    } else {
+        // Continue dragging - update triangle position
+        triangleX = ndcX + dragOffsetX;
+        triangleY = ndcY + dragOffsetY;
+    }
+    
+    lastX = x;
+    lastY = y;
+} else {
+    dragging = false;
+}
+ 
+    auto translationLoc = glGetUniformLocation(shaderProgram, "trans");
+    glUniform2f(translationLoc, triangleX, triangleY);
+
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
 
@@ -172,16 +218,8 @@ int main() {
         // (Your code clears your framebuffer, renders your other stuff etc.)
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-
         
         glfwSwapBuffers(window);
-        glfwPollEvents();
-
-        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
-            glfwSetWindowShouldClose(window, true);
-        }
-
 
         
     }
